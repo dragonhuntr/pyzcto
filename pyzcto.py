@@ -23,7 +23,7 @@ class mainwindow(QMainWindow):
         loadUi("pyzcto.ui", self)
         self.settings = {}
         self.load_settings()
-        fd = open(os.path.expanduser('~/.zcash/zcash.conf'))
+        fd = open(os.path.expanduser('~/.koto/koto.conf'))
         fdl = fd.readlines()
         fd.close()
         userlines = [l for l in fdl if 'rpcuser' in l]
