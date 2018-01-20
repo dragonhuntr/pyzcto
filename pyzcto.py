@@ -29,7 +29,7 @@ class mainwindow(QMainWindow):
         userlines = [l for l in fdl if 'rpcuser' in l]
         passlines = [l for l in fdl if 'rpcpassword' in l]
         if not userlines or not passlines:
-            raise Error('setup rpcuser and rpcpassword in zcash.conf')
+            raise Error('setup rpcuser and rpcpassword in koto.conf')
         username = userlines[-1].replace(' ', '').split('=')[1]
         password = passlines[-1].replace(' ', '').split('=')[1]
         self.line_user.setText(username.replace('\n',''))
