@@ -1,4 +1,4 @@
 SOCKSPort 10050
 
 HiddenServiceDir ./hidden_service/
-HiddenServicePort 8232 127.0.0.1:8232
+HiddenServicePort 8432 127.0.0.1:8432
