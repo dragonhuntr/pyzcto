@@ -13,8 +13,8 @@ import os
 from decimal import Decimal
 
 defaults = {
-    'zcashd_host': '127.0.0.1',
-    'zcashd_port': '8232'
+    'kotod_host': '127.0.0.1',
+    'kotod_port': '8432'
     }
 
 class mainwindow(QMainWindow):
@@ -23,13 +23,13 @@ class mainwindow(QMainWindow):
         loadUi("pyzcto.ui", self)
         self.settings = {}
         self.load_settings()
-        fd = open(os.path.expanduser('~/.zcash/zcash.conf'))
+        fd = open(os.path.expanduser('~/.koto/koto.conf'))
         fdl = fd.readlines()
         fd.close()
         userlines = [l for l in fdl if 'rpcuser' in l]
         passlines = [l for l in fdl if 'rpcpassword' in l]
         if not userlines or not passlines:
-            raise Error('setup rpcuser and rpcpassword in zcash.conf')
+            raise Error('setup rpcuser and rpcpassword in koto.conf')
         username = userlines[-1].replace(' ', '').split('=')[1]
         password = passlines[-1].replace(' ', '').split('=')[1]
         self.line_user.setText(username.replace('\n',''))
@@ -107,8 +107,8 @@ class mainwindow(QMainWindow):
             nlines = len(self.plainTextEdit_multisigkeys.toPlainText().splitlines())
             if nlines>15:
                 return
-            newaddress = self.callzcash('getnewaddress')
-            pubkey = self.callzcash('validateaddress',[newaddress])['pubkey']
+            newaddress = self.callkoto('getnewaddress')
+            pubkey = self.callkoto('validateaddress',[newaddress])['pubkey']
             self.pubkeys[newaddress]=pubkey
             plaintext = self.plainTextEdit_multisigkeys.toPlainText()
             while len(plaintext) >= 2 and plaintext[-2] == '\n':
@@ -148,7 +148,7 @@ class mainwindow(QMainWindow):
                 amount = Decimal(l.split(',')[1])
                 totalout += amount
                 destinations[address]=amount
-            txouts = self.callzcash('listunspent', [1, 999999999, [fromaddress]])
+            txouts = self.callkoto('listunspent', [1, 999999999, [fromaddress]])
             totalin = Decimal('0')
             txins = []
             while totalin < totalout:
@@ -160,7 +160,7 @@ class mainwindow(QMainWindow):
             change = totalin-totalout
             if change > 0:
                 destinations[fromaddress] = change
-            rawtrans = self.callzcash('createrawtransaction',[txins, destinations])
+            rawtrans = self.callkoto('createrawtransaction',[txins, destinations])
             try:
                 self.plainTextEdit_raw_ms_tx.textChanged.disconnect(self.parserawhex)
             except:
@@ -178,7 +178,7 @@ class mainwindow(QMainWindow):
 
     def signrawtransaction(self):
         rawtrans = self.plainTextEdit_raw_ms_tx.toPlainText()
-        signed = self.callzcash('signrawtransaction', [rawtrans])
+        signed = self.callkoto('signrawtransaction', [rawtrans])
         try:
             self.plainTextEdit_raw_ms_tx.textChanged.disconnect(self.parserawhex)
         except:
@@ -200,14 +200,14 @@ class mainwindow(QMainWindow):
             if addresses[i] in self.pubkeys:
                 addresses[i] = self.pubkeys[addresses[i]]
         self.pushButton_importmultisig.setEnabled(False)
-        res = self.callzcash('addmultisigaddress', [n,addresses])
+        res = self.callkoto('addmultisigaddress', [n,addresses])
         multisigaddress = str(self.lineEdit_multisigaddress.text())
         messagebox = QMessageBox()
         messagebox.setText("Importing address.\n\nDo you want to rescan the blockchain? \n\n Rescanning the blockchain allows to use the funds sent to the multisig address before this moment but will take several minutes. The program will be irresponsive during that time.\n\n If you don't rescan the blockchain, you will still be able to create payment orders for the funds that will be received in the future, or to sign orders created by other signers.")
         messagebox.setWindowTitle("")
         messagebox.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         rescan = messagebox.exec_() == QMessageBox.Yes
-        self.callzcash('importaddress', [multisigaddress, "", rescan])
+        self.callkoto('importaddress', [multisigaddress, "", rescan])
 
         self.update()
 
@@ -228,9 +228,9 @@ class mainwindow(QMainWindow):
                 self.plainTextEdit_spendscript.textChanged.disconnect(self.verifymultisig)
             except:
                 pass
-            res = self.callzcash('createmultisig',[n, addresses])
+            res = self.callkoto('createmultisig',[n, addresses])
             self.lineEdit_multisigaddress.setText(res['address'])
-            availableaddresses = self.callzcash('getaddressesbyaccount', [""])
+            availableaddresses = self.callkoto('getaddressesbyaccount', [""])
             if res['address'] in availableaddresses:
                 self.pushButton_importmultisig.setEnabled(False)
             else:
@@ -252,8 +252,7 @@ class mainwindow(QMainWindow):
 
     def parserawhex(self):
         self.pushButton_ms_broadcast.setEnabled(False)
-        rawhex = self.plainTextEdit_raw_ms_tx.toPlainText()
-        res = self.callzcash('decoderawtransaction', [rawhex])
+        rawhex = self.pkoto('decoderawtransaction', [rawhex])
         try:
             self.plainTextEdit_to_address_ms.textChanged.disconnect(self.createmultisigtx)
             self.comboBox_from_addr_ms.currentTextChanged.disconnect(self.createmultisigtx)
@@ -266,7 +265,7 @@ class mainwindow(QMainWindow):
         try:
             inputaddreses = []
             for vin in res['vin']:
-                inputaddreses += self.callzcash('gettxout', [vin['txid'], vin['vout']])['scriptPubKey']['addresses']
+                inputaddreses += self.callkoto('gettxout', [vin['txid'], vin['vout']])['scriptPubKey']['addresses']
             if len(set(inputaddreses)) == 1:
                 address = inputaddreses[0]
                 tex = ''
@@ -312,7 +311,7 @@ class mainwindow(QMainWindow):
     def verifymultisig(self):
         try:
             script = str(self.plainTextEdit_spendscript.toPlainText())
-            res = self.callzcash('decodescript', [script])
+            res = self.callkoto('decodescript', [script])
             try:
                 self.plainTextEdit_multisigkeys.textChanged.disconnect(self.generatemultisig)
             except:
@@ -329,7 +328,7 @@ class mainwindow(QMainWindow):
             self.spinBox_multisign.setValue(res['reqSigs'])
             self.spinBox_multisign.valueChanged.connect(self.generatemultisig)
             self.lineEdit_multisigaddress.setText(res['p2sh'])
-            availableaddresses = self.callzcash('getaddressesbyaccount', [""])
+            availableaddresses = self.callkoto('getaddressesbyaccount', [""])
             if res['p2sh'] in availableaddresses and any(ad in availableaddresses for ad in res['addresses']):
                 self.pushButton_importmultisig.setEnabled(False)
             else:
@@ -351,7 +350,7 @@ class mainwindow(QMainWindow):
 
     def broadcastrawtransaction(self):
         hex = self.plainTextEdit_raw_ms_tx.toPlainText()
-        res = self.callzcash('sendrawtransaction', [hex])
+        res = self.callkoto('sendrawtransaction', [hex])
         self.pushButton_ms_broadcast.setEnabled(False)
 
 
@@ -375,7 +374,7 @@ class mainwindow(QMainWindow):
             elif ad[1] in '23':
                 typ = 'Multisig'
             try:
-                valid = self.callzcash(validate, [ad])['isvalid']
+                valid = self.callkoto(validate, [ad])['isvalid']
                 if not valid:
                     typ = 'Invalid'
             except:
@@ -401,18 +400,18 @@ class mainwindow(QMainWindow):
         table = self.sender()
         row = table.currentRow()
         txid = str(table.item(row, 3).text())
-        data = self.callzcash('gettransaction', [txid])
+        data = self.callkoto('gettransaction', [txid])
         self.transtext.clear()
         self.transtext.appendPlainText(simplejson.dumps(data, indent=4))
 
     def get_balances(self):
-        zaddresses = self.callzcash('z_listaddresses')
-        unspent = self.callzcash('listunspent')
-        traddresses = list(self.callzcash('getaddressesbyaccount', ['']))
+        zaddresses = self.callkoto('z_listaddresses')
+        unspent = self.callkoto('listunspent')
+        traddresses = list(self.callkoto('getaddressesbyaccount', ['']))
         addresses = zaddresses + traddresses
         bals = {}
         for ad in addresses:
-            bal = self.callzcash('z_getbalance', [ad])
+            bal = self.callkoto('z_getbalance', [ad])
             bal = str(bal)
             if bal == '0E-8':
                 bal = '0.00000000'
@@ -421,17 +420,17 @@ class mainwindow(QMainWindow):
         return bals
 
     def get_utxos(self):
-        unspent = reversed(sorted([(u['confirmations'],u['address'], u['amount']) for u in self.callzcash('listunspent')]))
+        unspent = reversed(sorted([(u['confirmations'],u['address'], u['amount']) for u in self.callkoto('listunspent')]))
         unspent = [(u[1], u[2], colorfromconfs(u[0])) for u in unspent]
         return unspent
 
     def get_shreceieved(self):
-        shaddreses = self.callzcash('z_listaddresses')
+        shaddreses = self.callkoto('z_listaddresses')
         shtxs = []
         for shad in shaddreses:
-            txs = self.callzcash('z_listreceivedbyaddress', [shad])
+            txs = self.callkoto('z_listreceivedbyaddress', [shad])
             for tx in txs:
-                txdata = self.callzcash('gettransaction', [tx['txid']])
+                txdata = self.callkoto('gettransaction', [tx['txid']])
                 memofield = bytearray.fromhex(tx['memo'])
                 if memofield[0] == 246:
                     memofield = ''
@@ -496,8 +495,8 @@ class mainwindow(QMainWindow):
             options = [l.split('#')[0].split() for l in fd.readlines()]
             for o in options:
                 self.settings[o[0]] = o[1]
-        self.line_host.setText(self.settings['zcashd_host'])
-        self.line_port.setText(self.settings['zcashd_port'])
+        self.line_host.setText(self.settings['kotod_host'])
+        self.line_port.setText(self.settings['kotod_port'])
 
     def check_is_send_correct(self):
         if self.get_send_data():
@@ -536,7 +535,7 @@ class mainwindow(QMainWindow):
             if (not is_zaddr) and memo:
                 return False
             if is_zaddr:
-                isvalid = self.callzcash('z_validateaddress', [sendaddr])
+                isvalid = self.callkoto('z_validateaddress', [sendaddr])
                 if memo:
                     send_data.append({'address':sendaddr, 'amount': sendamount, 'memo': encmemo})
                 else:
@@ -544,7 +543,7 @@ class mainwindow(QMainWindow):
             else:
                 if memo:
                     return False
-                isvalid = self.callzcash('validateaddress', [sendaddr])
+                isvalid = self.callkoto('validateaddress', [sendaddr])
                 send_data.append({'address':sendaddr, 'amount': sendamount})
             if not isvalid['isvalid']:
                 return False
@@ -568,7 +567,7 @@ class mainwindow(QMainWindow):
                             memo = False
                     else:
                         prot = line.split(':')
-                        if len(prot)>2 or prot[0] != 'zcash':
+                        if len(prot)>2 or prot[0] != 'koto':
                             return False
                         prot = prot[1].split('?')
                         address = prot[0]
@@ -579,9 +578,9 @@ class mainwindow(QMainWindow):
                             memo = values['message']
                             encmemo = ''.join('{:x}'.format(ord(c)) for c in str(memo))
                     if address[0] == 'z':
-                        isvalid = self.callzcash('z_validateaddress', [address])
+                        isvalid = self.callkoto('z_validateaddress', [address])
                     else:
-                        isvalid = self.callzcash('validateaddress', [address])
+                        isvalid = self.callkoto('validateaddress', [address])
                         if memo:
                             return False
                     if not isvalid['isvalid']:
@@ -667,15 +666,15 @@ class mainwindow(QMainWindow):
             fee = Decimal(str(self.line_fee.text()))
         except:
             return
-        op = self.callzcash('z_sendmany', [fromaddress, params, 1, fee])
+        op = self.callkoto('z_sendmany', [fromaddress, params, 1, fee])
         self.donetext.appendPlainText(op)
         self.sendButton.setEnabled(False)
 
     def updatestatus(self):
-        opresults = self.callzcash('z_getoperationresult')
+        opresults = self.callkoto('z_getoperationresult')
         if opresults:
             self.donetext.appendPlainText(simplejson.dumps(opresults,indent=4))
-        opstatus = self.callzcash('z_getoperationstatus')
+        opstatus = self.callkoto('z_getoperationstatus')
         if opstatus:
             opstr = simplejson.dumps(opstatus,indent=4)
             if str(self.statustext.toPlainText()) != opstr:
@@ -685,13 +684,13 @@ class mainwindow(QMainWindow):
             self.statustext.clear()
 
     def newtraddr(self):
-        self.callzcash('getnewaddress')
+        self.callkoto('getnewaddress')
         self.listaddresses_receive.clear()
         self.updatereceive()
         self.update()
 
     def newshaddr(self):
-        self.callzcash('z_getnewaddress')
+        self.callkoto('z_getnewaddress')
         self.listaddresses_receive.clear()
         self.updatereceive()
         self.update()
@@ -731,7 +730,7 @@ class mainwindow(QMainWindow):
                 fd.write('HiddenServiceDir ./hidden_service/ \n')
                 fd.write('HiddenServicePort 80 127.0.0.1:{}\n'.format(self.line_port.text()))
                 if self.checkBox_stealth.isChecked():
-                    fd.write('HiddenServiceAuthorizeClient stealth zcashpannel\n')
+                    fd.write('HiddenServiceAuthorizeClient stealth kotopannel\n')
             self.torproc.setProcessChannelMode(QProcess.MergedChannels)
             self.torproc.start('tor', ['-f', 'torrc'])
             self.torproc.readyReadStandardOutput.connect(self.updatetor)
@@ -797,7 +796,7 @@ class mainwindow(QMainWindow):
 
     def gettransactions(self):
         trans = []
-        transactions = self.callzcash('listtransactions', ['', 1000])
+        transactions = self.callkoto('listtransactions', ['', 1000])
         for tx in transactions:
             if 'address' in tx:
                 address = tx['address']
@@ -843,7 +842,7 @@ class mainwindow(QMainWindow):
     def updatetrs(self):
         self.tableWidget_traddr.setRowCount(0)
         trbalance = Decimal('0.0')
-        shbalance = Decimal(self.callzcash('z_gettotalbalance')['private'])
+        shbalance = Decimal(self.callkoto('z_gettotalbalance')['private'])
         for us in self.utxos:
             self.tableWidget_traddr.insertRow(0)
             trbalance += us[1]
@@ -892,7 +891,7 @@ class mainwindow(QMainWindow):
                 typ = 'Shielded'
             elif ad[1] in '1m':
                 typ = 'Transparent'
-                vali =  self.callzcash('validateaddress', [ad])
+                vali =  self.callkoto('validateaddress', [ad])
                 if vali['ismine']:
                     pubkey =vali['pubkey']
                     self.pubkeys[ad] = pubkey
@@ -930,13 +929,13 @@ class mainwindow(QMainWindow):
         if address and amount:
             if comment:
                 try:
-                    string = 'zcash:{}?amount={}&message={}'.format(address,amount,comment)
+                    string = 'koto:{}?amount={}&message={}'.format(address,amount,comment)
                 except:
                     self.label_qrreceive.hide()
                     self.label_textreceive.hide()
                     return
             else:
-                string = 'zcash:{}?amount={}'.format(address,amount)
+                string = 'koto:{}?amount={}'.format(address,amount)
             img = qrcode.make(string)
             img.save('qrcode.png', 'PNG')
             qrc = QPixmap('qrcode.png')
@@ -949,7 +948,7 @@ class mainwindow(QMainWindow):
             self.label_qrreceive.hide()
             self.label_textreceive.hide()
 
-    def callzcash(self, method, params = []):
+    def callkoto(self, method, params = []):
         url='http://'+str(self.line_host.text()) + ':' + str(self.line_port.text())
         user = str(self.line_user.text())
         passwd = str(self.line_password.text())
